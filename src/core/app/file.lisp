@@ -91,10 +91,28 @@
   (when-let (pos (scan "^text" content-type))
     (= pos 0)))
 
+(defun gz-p (pathname)
+  (let ((pathname (if (stringp pathname) (pathname pathname) pathname)))
+    (string= (pathname-type pathname) "gz")))
+
+(defun make-pathname-eliminate-gz (pathname)
+  (let* ((pathname (if (stringp pathname) (pathname pathname) pathname))
+         (unzipped-pathname (pathname (pathname-name pathname)))
+         (unzipped-name (pathname-name unzipped-pathname))
+         (unzipped-type (pathname-type unzipped-pathname)))
+    (make-pathname :host (pathname-host pathname)
+                   :device (pathname-device pathname)
+                   :directory (pathname-directory pathname)
+                   :name unzipped-name
+                   :type unzipped-type
+                   :version (pathname-version pathname))))
+
 @export
 (defgeneric serve-path (app env file encoding)
   (:method ((this <clack-app-file>) env file encoding)
-    (let ((content-type (or (mime-lookup file) "text/plain"))
+    (let ((content-type (or (clack.util.hunchentoot:mime-type
+                             (if (gz-p file) (make-pathname-eliminate-gz file) file))
+                            "text/plain"))
           (univ-time (or (file-write-date file)
                          (get-universal-time))))
       (when (text-file-p content-type)
@@ -106,6 +124,7 @@
                               :if-does-not-exist nil)
         `(200
           (:content-type ,content-type
+           ,@(if (gz-p file) '(:content-encoding "gzip"))
            :content-length ,(file-length stream)
            :last-modified
            ,(format-rfc1123-timestring nil
