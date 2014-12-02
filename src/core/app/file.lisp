@@ -110,7 +110,7 @@
 @export
 (defgeneric serve-path (app env file encoding)
   (:method ((this <clack-app-file>) env file encoding)
-    (let ((content-type (or (clack.util.hunchentoot:mime-type
+    (let ((content-type (or (mime-lookup
                              (if (gz-p file) (make-pathname-eliminate-gz file) file))
                             "text/plain"))
           (univ-time (or (file-write-date file)
